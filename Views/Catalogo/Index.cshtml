@@ -1,0 +1,466 @@
+@model IEnumerable<KovakWeb.Models.Producto>
+
+@{
+    Layout = null; 
+    var negocio = ViewBag.Negocio as KovakWeb.Models.Negocio;
+    
+    // Recuperamos las categorías del ViewBag de forma segura para evitar errores en el modelo Producto
+    var categoriasLista = ViewBag.Categorias as IEnumerable<KovakWeb.Models.Categoria> ?? new List<KovakWeb.Models.Categoria>();
+}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catálogo - @(negocio?.Nombre ?? "Negocio")</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <style>
+        body { background-color: #e9ecef; padding-bottom: 70px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .mobile-container { max-width: 480px; margin: 0 auto; background-color: white; min-height: 100vh; box-shadow: 0 0 20px rgba(0,0,0,0.1); position: relative; padding-bottom: 90px; }
+        .product-card { border-radius: 12px; border: 1px solid #f2f2f2; overflow: hidden; height: 100%; transition: transform 0.2s; }
+        .product-img-vignette { height: 160px; background-color: #f8f9fa; display: flex; align-items: center; justify-content: center; color: #adb5bd; overflow: hidden; }
+        .product-img-vignette img { width: 100%; height: 100%; object-fit: cover; }
+        
+        /* Selector de talles */
+        .talle-selector input[type="radio"] { display: none; }
+        .talle-selector label { display: inline-block; min-width: 45px; height: 45px; line-height: 43px; text-align: center; border: 2px solid #dee2e6; border-radius: 10px; margin-right: 8px; margin-bottom: 8px; cursor: pointer; font-weight: bold; color: #495057; transition: 0.2s; padding: 0 10px; }
+        .talle-selector input[type="radio"]:checked + label { background-color: #212529; color: white; border-color: #212529; box-shadow: 0 3px 6px rgba(0,0,0,0.2); }
+        .modal-img-container { height: 300px; background-color: #f8f9fa; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .modal-img-container img { width: 100%; height: 100%; object-fit: contain; }
+
+        .floating-cart { position: fixed; bottom: 85px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 440px; border-radius: 50px; z-index: 1000; box-shadow: 0 5px 15px rgba(25, 135, 84, 0.4); display: none; }
+        .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; height: 70px; background-color: white; border-top: 1px solid #dee2e6; display: flex; justify-content: space-around; align-items: center; z-index: 999; }
+        .nav-item { text-align: center; color: #6c757d; text-decoration: none; font-size: 0.8rem; }
+        .nav-item i { font-size: 1.5rem; display: block; margin-bottom: -2px; }
+        .nav-item.active { color: #212529; font-weight: bold; }
+
+        /* Botones +/- inline */
+        .qty-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid #ced4da; background-color: #f8f9fa; font-weight: bold; font-size: 1rem; cursor: pointer; transition: 0.2s; }
+        .qty-btn:hover { background-color: #e9ecef; }
+    </style>
+</head>
+<body>
+
+    <div class="mobile-container">
+        
+        <div class="bg-white border-bottom p-3 sticky-top" style="z-index: 998;">
+            <div class="d-flex justify-content-between align-items-center">
+                <h4 class="mb-0 fw-bold">@(negocio?.Nombre ?? "Mi Catálogo")</h4>
+                <a href="/Productos" class="btn btn-sm btn-outline-dark rounded-pill">Ver info</a>
+            </div>
+        </div>
+
+        <div class="p-3">
+            <h5 class="fw-bold mb-3">Nuestros Productos</h5>
+            <div class="row g-3">
+                @if (Model == null || !Model.Any())
+                {
+                    <div class="col-12 text-center text-muted py-5"><i class="bi bi-box-seam fs-1 d-block mb-3"></i><p>No hay productos disponibles.</p></div>
+                }
+                else
+                {
+                    @foreach (var item in Model)
+                    {
+                        if (item == null || item.ID == 0) continue;
+
+                        string tallesRealesJson = "[]";
+                        if(item.ProductoTalles != null && item.ProductoTalles.Any()) {
+                            var tallesValidos = item.ProductoTalles
+                                .Where(t => t != null && !string.IsNullOrEmpty(t.Talle))
+                                .Select(t => new { Talle = t.Talle, Cantidad = t.Cantidad });
+
+                            if (tallesValidos.Any()) {
+                                tallesRealesJson = System.Text.Json.JsonSerializer.Serialize(tallesValidos);
+                            }
+                        }
+
+                        string nombreSeguro = item.Nombre ?? "Producto sin nombre";
+                        string precioSeguro = item.Precio.ToString("0");
+                        string descSegura = !string.IsNullOrEmpty(item.Descripcion) ? item.Descripcion.Replace("'", "\\'") : "Sin descripción.";
+
+                        <div class="col-6">
+                            <div class="product-card shadow-sm h-100 bg-white">
+                                <div class="product-img-vignette">
+                                    @if (!string.IsNullOrEmpty(item.UrlImagen)) { <img src="@item.UrlImagen" alt="@nombreSeguro" loading="lazy" /> }
+                                    else { <i class="bi bi-image text-muted fs-1"></i> }
+                                </div>
+                                <div class="p-3 d-flex flex-column justify-content-between" style="height: 140px;">
+                                    <div>
+                                        <h6 class="mb-1 fw-bold text-truncate" style="font-size: 0.9rem;">@nombreSeguro</h6>
+                                        <div class="fw-bold fs-5 text-success">$ @item.Precio.ToString("N0")</div>
+                                    </div>
+                                    <button class="btn btn-sm btn-dark w-100 fw-bold rounded-pill btn-abrir-detalle"
+                                            data-id="@item.ID" data-nombre="@nombreSeguro" data-precio="@precioSeguro" data-descripcion="@descSegura" 
+                                            data-img1="@item.UrlImagen" data-img2="@item.UrlImagen2" data-img3="@item.UrlImagen3" data-img4="@item.UrlImagen4"
+                                            data-talles='@Html.Raw(tallesRealesJson)'>
+                                        Ver Detalles
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <button id="btnFlotanteCarrito" class="btn btn-success floating-cart py-3 fw-bold justify-content-between align-items-center px-4" data-bs-toggle="offcanvas" data-bs-target="#cartOffcanvas">
+            <span id="cartItemCount">🛒 0 ítems</span>
+            <span>Ver Pedido ➔</span>
+            <span id="cartTotalBtn">$ 0</span>
+        </button>
+
+        <div class="bottom-nav shadow-lg">
+            <a href="/Catalogo" class="nav-item active"><i class="bi bi-house-door-fill"></i> Inicio</a>
+            <a href="#" class="nav-item" data-bs-toggle="modal" data-bs-target="#modalBuscador"><i class="bi bi-search"></i> Buscar</a>
+            <a href="#" class="nav-item" data-bs-toggle="offcanvas" data-bs-target="#offcanvasCategorias"><i class="bi bi-grid-fill"></i> Categorías</a>
+        </div>
+
+    </div> 
+
+    <!-- Carrito Offcanvas -->
+    <div class="offcanvas offcanvas-bottom rounded-top-4" tabindex="-1" id="cartOffcanvas" style="height: 75vh; max-width: 480px; margin: 0 auto; z-index: 2000;">
+        <div class="offcanvas-header border-bottom">
+            <h5 class="offcanvas-title fw-bold">Tu Pedido</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body d-flex flex-column bg-light">
+            <div id="listaCarritoContenedor" class="flex-grow-1 overflow-auto mb-3"></div>
+            <div class="border-top pt-3 bg-white p-3 rounded-4 shadow-sm">
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted">Tu Nombre y Apellido *</label>
+                    <input type="text" id="inputNombreCliente" class="form-control form-control-lg rounded-pill" placeholder="Ej: Juan Pérez" required />
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0 text-muted">Total a pagar:</h5>
+                    <h2 class="mb-0 fw-bold text-success" id="cartTotalResumen">$ 0</h2>
+                </div>
+                <button id="btnEnviarWhatsApp" class="btn btn-success w-100 py-3 fw-bold fs-5 rounded-pill shadow">
+                    Confirmar y Enviar a WhatsApp <i class="bi bi-whatsapp"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Menú de Categorías conectado directamente al ViewBag de Kovak -->
+    <div class="offcanvas offcanvas-bottom rounded-top-4" tabindex="-1" id="offcanvasCategorias" style="height: 50vh; max-width: 480px; margin: 0 auto; z-index: 2000;">
+        <div class="offcanvas-header border-bottom">
+            <h5 class="offcanvas-title fw-bold">Filtrar por Categoría</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body bg-light">
+            <div class="list-group rounded-3 shadow-sm">
+                <a href="/Catalogo" class="list-group-item list-group-item-action fw-bold py-3"><i class="bi bi-box-fill me-2 text-secondary"></i> Ver Todo el Stock</a>
+                @foreach (var cat in categoriasLista)
+                {
+                    if (cat == null) continue;
+                    <a href="/Catalogo?categoriaId=@cat.ID" class="list-group-item list-group-item-action fw-semibold py-3">
+                        <i class="bi bi-tag-fill me-2 text-muted"></i> @cat.Nombre
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Buscador Modal -->
+    <div class="modal fade" id="modalBuscador" tabindex="-1" aria-hidden="true" style="z-index: 2000;">
+        <div class="modal-dialog modal-dialog-centered p-3">
+            <div class="modal-content rounded-4 border-0 p-3 shadow-lg">
+                <form action="/Catalogo" method="get">
+                    <h5 class="fw-bold mb-3">¿Qué estás buscando?</h5>
+                    <div class="input-group mb-2">
+                        <input type="text" name="buscar" class="form-control form-control-lg rounded-start-pill" placeholder="Ej: Camiseta de Boca..." required>
+                        <button class="btn btn-dark rounded-end-pill px-4" type="submit"><i class="bi bi-search"></i></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalle Producto Modal -->
+    <div class="modal fade" id="modalDetalle" tabindex="-1" aria-hidden="true" style="z-index: 3000;">
+        <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down modal-dialog-scrollable">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-0 sticky-top bg-white p-2" style="z-index: 10;">
+                    <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    
+                    <div id="carruselProducto" class="carousel slide bg-light" data-bs-ride="carousel">
+                        <div class="carousel-inner" id="modalCarruselInner"></div>
+                        <button class="carousel-control-prev" type="button" data-bs-target="#carruselProducto" data-bs-slide="prev">
+                            <span class="carousel-control-prev-icon bg-dark rounded-circle p-2" aria-hidden="true"></span>
+                        </button>
+                        <button class="carousel-control-next" type="button" data-bs-target="#carruselProducto" data-bs-slide="next">
+                            <span class="carousel-control-next-icon bg-dark rounded-circle p-2" aria-hidden="true"></span>
+                        </button>
+                    </div>
+
+                    <div class="p-4">
+                        <input type="hidden" id="modalProductoId">
+                        <input type="hidden" id="modalProductoPrecioNum">
+
+                        <h4 id="modalNombre" class="fw-bold mb-1">Cargando...</h4>
+                        <div id="modalPrecio" class="text-success fw-bold fs-3 mb-3">$ 0</div>
+                        <p id="modalDescripcion" class="text-muted small mb-4">Cargando descripción...</p>
+                        
+                        <h6 class="fw-bold mb-2">Seleccioná tu Talle Disponible *</h6>
+                        <div class="talle-selector mb-4" id="modalTallesSelector"></div>
+                        
+                        <button id="btnAgregarCarrito" class="btn btn-dark w-100 py-3 fw-bold rounded-pill fs-5 shadow-sm mb-2">
+                            Agregar al Pedido
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            let carrito = []; 
+            let tallesDelProductoAbierto = []; 
+
+            const modalElement = document.getElementById('modalDetalle');
+            const modalBootstrap = new bootstrap.Modal(modalElement);
+
+            document.querySelectorAll('.btn-abrir-detalle').forEach(boton => {
+                boton.addEventListener('click', function () {
+                    const productoId = this.getAttribute('data-id');
+                    if (!productoId) return;
+
+                    document.getElementById('modalProductoId').value = productoId;
+                    document.getElementById('modalNombre').textContent = this.getAttribute('data-nombre') || 'Producto';
+                    const precioNum = parseInt(this.getAttribute('data-precio')) || 0;
+                    document.getElementById('modalProductoPrecioNum').value = precioNum;
+                    document.getElementById('modalPrecio').textContent = '$ ' + precioNum.toLocaleString('es-AR');
+                    const desc = this.getAttribute('data-descripcion');
+                    document.getElementById('modalDescripcion').textContent = desc ? desc : 'Sin descripción detallada.';
+
+                    const imagenes = [this.getAttribute('data-img1'), this.getAttribute('data-img2'), this.getAttribute('data-img3'), this.getAttribute('data-img4')];
+                    let carruselHtml = '';
+                    let esPrimero = true;
+                    imagenes.forEach(img => {
+                        if (img && img.trim() !== "") {
+                            carruselHtml += `<div class="carousel-item ${esPrimero ? 'active' : ''}"><div class="modal-img-container"><img src="${img}" alt="Producto" loading="lazy" /></div></div>`;
+                            esPrimero = false;
+                        }
+                    });
+                    if (carruselHtml === '') { carruselHtml = `<div class="carousel-item active"><div class="modal-img-container"><i class="bi bi-image text-muted fs-1"></i></div></div>`; }
+                    document.getElementById('modalCarruselInner').innerHTML = carruselHtml;
+
+                    const selectorTalles = document.getElementById('modalTallesSelector');
+                    selectorTalles.innerHTML = ''; 
+
+                    const tallesStr = this.getAttribute('data-talles');
+                    tallesDelProductoAbierto = [];
+
+                    if (tallesStr && tallesStr.trim() !== "") {
+                        try {
+                            tallesDelProductoAbierto = JSON.parse(tallesStr);
+                        } catch (e) {
+                            console.error("Error al parsear talles:", e);
+                            tallesDelProductoAbierto = [];
+                        }
+                    }
+
+                    let tallesHtml = '';
+                    let contadorTallesDisponibles = 0;
+
+                    if (tallesDelProductoAbierto && Array.isArray(tallesDelProductoAbierto) && tallesDelProductoAbierto.length > 0) {
+                        tallesDelProductoAbierto.forEach(t => {
+                            if (t && t.Cantidad > 0) {
+                                contadorTallesDisponibles++;
+                                const talleSanitized = t.Talle.replace(/\s+/g, '');
+                                const yaEnCarrito = carrito.some(item => item.productoId === productoId && item.talle === t.Talle);
+
+                                if (yaEnCarrito) {
+                                    tallesHtml += `
+                                        <input type="radio" id="talle_${talleSanitized}" name="talle" value="${t.Talle}" disabled>
+                                        <label for="talle_${talleSanitized}" class="opacity-50 text-decoration-line-through" style="background-color: #e9ecef;">${t.Talle}</label>
+                                    `;
+                                } else {
+                                    tallesHtml += `
+                                        <input type="radio" id="talle_${talleSanitized}" name="talle" value="${t.Talle}">
+                                        <label for="talle_${talleSanitized}">${t.Talle}</label>
+                                    `;
+                                }
+                            }
+                        });
+                    }
+
+                    const btnAgregar = document.getElementById('btnAgregarCarrito');
+                    if (contadorTallesDisponibles === 0) {
+                        selectorTalles.innerHTML = '<p class="text-danger fw-bold mb-0 pt-1"><i class="bi bi-exclamation-triangle-fill"></i> Sin stock disponible por el momento.</p>';
+                        btnAgregar.disabled = true;
+                        btnAgregar.textContent = 'Sin Stock';
+                        btnAgregar.className = 'btn btn-outline-danger w-100 py-3 fw-bold rounded-pill fs-5';
+                    } else {
+                        selectorTalles.innerHTML = tallesHtml;
+                        const todosAgregados = tallesDelProductoAbierto.filter(t => t.Cantidad > 0).every(t => carrito.some(item => item.productoId === productoId && item.talle === t.Talle));
+                        
+                        if(todosAgregados) {
+                            btnAgregar.disabled = true;
+                            btnAgregar.textContent = 'Ya en el Carrito';
+                            btnAgregar.className = 'btn btn-secondary w-100 py-3 fw-bold rounded-pill fs-5 shadow-sm';
+                        } else {
+                            btnAgregar.disabled = false;
+                            btnAgregar.textContent = 'Agregar al Pedido';
+                            btnAgregar.className = 'btn btn-dark w-100 py-3 fw-bold rounded-pill fs-5 shadow-sm';
+                        }
+                    }
+
+                    document.querySelectorAll('input[name="talle"]').forEach(radio => {
+                        radio.addEventListener('change', function() {
+                            btnAgregar.disabled = false;
+                            btnAgregar.textContent = 'Agregar al Pedido';
+                            btnAgregar.className = 'btn btn-dark w-100 py-3 fw-bold rounded-pill fs-5 shadow-sm';
+                        });
+                    });
+
+                    modalBootstrap.show();
+                });
+            });
+
+            document.getElementById('btnAgregarCarrito').addEventListener('click', function() {
+                const talleSeleccionado = document.querySelector('input[name="talle"]:checked');
+                if (!talleSeleccionado) {
+                    alert('⚠️ Por favor, seleccioná tu talle antes de agregar el producto al pedido.');
+                    return;
+                }
+
+                const prodId = document.getElementById('modalProductoId').value;
+                const nombreProd = document.getElementById('modalNombre').textContent;
+                const precioProd = parseInt(document.getElementById('modalProductoPrecioNum').value);
+                const talleProd = talleSeleccionado.value;
+
+                const talleObj = tallesDelProductoAbierto.find(t => t.Talle === talleProd);
+                const stockMaximo = talleObj ? talleObj.Cantidad : 1;
+
+                const nuevoItem = {
+                    productoId: prodId,
+                    nombre: nombreProd,
+                    precio: precioProd,
+                    talle: talleProd,
+                    cantidad: 1,
+                    stockMax: stockMaximo
+                };
+
+                carrito.push(nuevoItem);
+                actualizarInterfazCarrito();
+                modalBootstrap.hide();
+            });
+
+            function actualizarInterfazCarrito() {
+                const btnFlotante = document.getElementById('btnFlotanteCarrito');
+                const contenedorLista = document.getElementById('listaCarritoContenedor');
+                
+                if (carrito.length === 0) {
+                    btnFlotante.style.display = 'none';
+                    contenedorLista.innerHTML = '<div class="text-center text-muted mt-5 py-5"><i class="bi bi-cart3 fs-1 d-block mb-3"></i><p>Tu carrito está vacío.</p></div>';
+                    document.getElementById('cartTotalResumen').textContent = '$ 0';
+                    return;
+                }
+
+                btnFlotante.style.display = 'flex'; 
+                let totalPrecio = 0;
+                let totalItemsCount = 0;
+                contenedorLista.innerHTML = ''; 
+
+                carrito.forEach((item, index) => {
+                    const subtotalItem = item.precio * item.cantidad;
+                    totalPrecio += subtotalItem;
+                    totalItemsCount += item.cantidad;
+
+                    contenedorLista.innerHTML += `
+                        <div class="bg-white p-3 rounded-3 shadow-sm border mb-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-0 fw-bold">${item.nombre}</h6>
+                                    <small class="text-muted fw-bold">Talle: <span class="text-dark">${item.talle}</span></small>
+                                    <div class="text-success fw-bold mt-1">$ ${subtotalItem.toLocaleString('es-AR')}</div>
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger border-0" onclick="eliminarDelCarritoTotal(${index})">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </div>
+                            <div class="d-flex align-items-center mt-2">
+                                <button class="qty-btn" onclick="modificarCantidad(${index}, -1)">-</button>
+                                <span class="mx-3 fw-bold fs-5">${item.cantidad}</span>
+                                <button class="qty-btn" onclick="modificarCantidad(${index}, 1)">+</button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                document.getElementById('cartItemCount').textContent = `🛒 ${totalItemsCount} ítems`;
+                document.getElementById('cartTotalBtn').textContent = `$ ${totalPrecio.toLocaleString('es-AR')}`;
+                document.getElementById('cartTotalResumen').textContent = `$ ${totalPrecio.toLocaleString('es-AR')}`;
+            }
+
+            window.modificarCantidad = function(index, cambio) {
+                const item = carrito[index];
+                const nuevaCantidad = item.cantidad + cambio;
+
+                if (cambio > 0 && nuevaCantidad > item.stockMax) {
+                    alert(`📢 ¡Atención! Es la última unidad disponible en este talle.`);
+                    return;
+                }
+
+                if (nuevaCantidad <= 0) {
+                    carrito.splice(index, 1);
+                } else {
+                    item.cantidad = nuevaCantidad;
+                }
+                actualizarInterfazCarrito();
+            };
+
+            window.eliminarDelCarritoTotal = function(index) {
+                carrito.splice(index, 1);
+                actualizarInterfazCarrito();
+            };
+
+            document.getElementById('btnEnviarWhatsApp').addEventListener('click', function() {
+                const nombreCliente = document.getElementById('inputNombreCliente').value.trim();
+                if (!nombreCliente) {
+                    alert('⚠️ Por favor, ingresá tu Nombre y Apellido.');
+                    return;
+                }
+
+                let total = 0;
+                let cuerpoMensaje = `¡Hola! Me gustaría realizar el siguiente pedido:\n\n`;
+                cuerpoMensaje += `*Cliente:* ${nombreCliente}\n`;
+                cuerpoMensaje += `--------------------------------\n\n`;
+                
+                carrito.forEach(item => {
+                    const subtotal = item.precio * item.cantidad;
+                    total += subtotal;
+                    cuerpoMensaje += `• *${item.nombre}* (x${item.cantidad})\n   Talle: *${item.talle}* - $ ${subtotal.toLocaleString('es-AR')}\n\n`;
+                });
+                
+                cuerpoMensaje += `--------------------------------\n`;
+                cuerpoMensaje += `*Total a pagar: $ ${total.toLocaleString('es-AR')}*\n`;
+
+                const nroWhatsApp = '@(negocio?.WhatsApp)'; 
+                const urlWhatsApp = `https://wa.me/${nroWhatsApp}?text=${encodeURIComponent(cuerpoMensaje)}`;
+                
+                const instanciaCart = bootstrap.Offcanvas.getInstance(document.getElementById('cartOffcanvas'));
+                if (instanciaCart) {
+                    instanciaCart.hide();
+                }
+
+                carrito = [];
+                document.getElementById('inputNombreCliente').value = '';
+                actualizarInterfazCarrito();
+                window.open(urlWhatsApp, '_blank');
+            });
+
+            actualizarInterfazCarrito();
+        });
+    </script>
+</body>
+</html>

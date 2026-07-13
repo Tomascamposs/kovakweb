@@ -4,11 +4,10 @@ EXPOSE 8080
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-# Modificamos esta línea para que busque adentro de la subcarpeta KovakWeb
-COPY ["KovakWeb/KovakWeb.csproj", "KovakWeb/"]
-RUN dotnet restore "KovakWeb/KovakWeb.csproj"
+COPY ["KovakWeb.csproj", "."]
+RUN dotnet restore "./KovakWeb.csproj"
 COPY . .
-WORKDIR "/src/KovakWeb"
+WORKDIR "/src/."
 RUN dotnet build "KovakWeb.csproj" -c Release -o /app/build
 
 FROM build AS publish

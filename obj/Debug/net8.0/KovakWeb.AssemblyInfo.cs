@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("KovakWeb")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c6a27e34cb8308c4536d0a149884eb0ed898d08d")]
 [assembly: System.Reflection.AssemblyProductAttribute("KovakWeb")]
 [assembly: System.Reflection.AssemblyTitleAttribute("KovakWeb")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
